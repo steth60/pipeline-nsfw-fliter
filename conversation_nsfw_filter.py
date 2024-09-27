@@ -20,26 +20,24 @@ class Pipeline:
 
     async def inlet(self, body: Union[dict, str], user: Optional[dict] = None) -> dict:
         """Block the request before it is passed to the AI if NSFW content is detected."""
-        # Debugging output to understand the structure of 'body'
-        print(f"Incoming body (type: {type(body)}): {body}")
-
-        # If body is a string, raise an error as we expect a dictionary
+        # Ensure body is a dictionary
         if isinstance(body, str):
             raise ValueError("Body is a string. Expected a dictionary with 'messages'.")
 
-        # Ensure 'body' is a dictionary
         if not isinstance(body, dict):
             raise ValueError(f"Expected body to be a dictionary but got {type(body)}")
 
-        # Extract messages and check its type
         messages = body.get("messages", [])
         if not isinstance(messages, list):
             raise ValueError(f"Expected 'messages' to be a list but got {type(messages)}")
 
-        # Get the last user message
+        # Get the last user message and check if it's valid
         user_message = get_last_user_message(messages)
+        if not isinstance(user_message, dict):
+            raise ValueError(f"Expected user_message to be a dictionary but got {type(user_message)}")
 
-        if user_message and self.contains_nsfw_content(user_message["content"]):
+        # Ensure the user message contains the 'content' key
+        if "content" in user_message and self.contains_nsfw_content(user_message["content"]):
             # Block the prompt and log the blocked message
             print(f"Blocked message: {user_message['content']} - Stopping AI processing.")
             raise Exception(self.valves.block_message)
