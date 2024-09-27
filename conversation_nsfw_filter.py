@@ -36,9 +36,10 @@ class Pipeline:
         if self.contains_nsfw(user_message):
             # Create a fake response as if the AI generated it
             fake_response = {
+                'status': 'success',  # Add a status to indicate success
                 'model': body.get('model'),
                 'messages': [
-                    {'role': 'assistant', 'content': 'Oops! No text generated from Ollama, please try again.'}
+                    {'role': 'assistant', 'content': 'Sorry, I can’t provide a response to that.'}
                 ],
                 'stream': False,
                 'max_tokens': body.get('max_tokens', 50),
