@@ -38,7 +38,7 @@ class Pipeline:
             fake_response = {
                 'model': body.get('model'),
                 'messages': [
-                    {'role': 'assistant', 'content': 'Sorry, I can’t provide a response to that.'}
+                    {'role': 'assistant', 'content': 'Oops! No text generated from Ollama, please try again.'}
                 ],
                 'stream': False,
                 'max_tokens': body.get('max_tokens', 50),
