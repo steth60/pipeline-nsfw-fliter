@@ -32,13 +32,20 @@ class Pipeline:
         print(f"NSFW Filter inlet activated.")
         user_message = body["messages"][-1]["content"]
 
-        # If NSFW content is detected, return a blocked message and don't proceed further
+        # If NSFW content is detected, return a fake AI response and don't send the message to the actual AI
         if self.contains_nsfw(user_message):
-            # Directly return a blocked message response without sending it to the AI
-            return {
-                'blocked': True,
-                'response': 'Your message was blocked due to inappropriate content. Please refrain from using explicit language.'
+            # Create a fake response as if the AI generated it
+            fake_response = {
+                'model': body.get('model'),
+                'messages': [
+                    {'role': 'assistant', 'content': 'Sorry, I can’t provide a response to that.'}
+                ],
+                'stream': False,
+                'max_tokens': body.get('max_tokens', 50),
+                'chat_id': body.get('chat_id'),
+                'metadata': body.get('metadata', {}),
             }
+            return fake_response
 
         # Otherwise, pass the message through unchanged (it goes to the AI if no NSFW content)
         return body
