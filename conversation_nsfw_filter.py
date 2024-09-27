@@ -20,13 +20,21 @@ class Pipeline:
 
     async def inlet(self, body: Union[dict, str], user: Optional[dict] = None) -> dict:
         """Block the request before it is passed to the AI if NSFW content is detected."""
-        # Ensure body is a dictionary
+        # Print body for debugging purposes
+        print(f"Incoming body: {body}")
+
+        # Ensure body is a dictionary, handle if it's a string or invalid format
+        if isinstance(body, str):
+            # If it's a string, raise an error or try parsing if it's JSON-like
+            raise ValueError("Body is a string, expected a dictionary.")
+
         if not isinstance(body, dict):
-            raise ValueError("Expected body to be a dictionary but got a string.")
+            # If body is not a dict at this point, raise an error
+            raise ValueError(f"Expected body to be a dictionary but got {type(body)}")
 
         messages = body.get("messages", [])
         if not isinstance(messages, list):
-            raise ValueError("Expected messages to be a list.")
+            raise ValueError("Expected 'messages' to be a list.")
 
         user_message = get_last_user_message(messages)
 
