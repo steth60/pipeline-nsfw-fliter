@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel
 from utils.pipelines.main import get_last_user_message
 
@@ -18,9 +18,16 @@ class Pipeline:
         """Check if any of the blocked keywords are present in the message."""
         return any(keyword.lower() in message.lower() for keyword in self.valves.blocked_words)
 
-    async def inlet(self, body: dict, user: Optional[dict] = None) -> dict:
+    async def inlet(self, body: Union[dict, str], user: Optional[dict] = None) -> dict:
         """Block the request before it is passed to the AI if NSFW content is detected."""
+        # Ensure body is a dictionary
+        if not isinstance(body, dict):
+            raise ValueError("Expected body to be a dictionary but got a string.")
+
         messages = body.get("messages", [])
+        if not isinstance(messages, list):
+            raise ValueError("Expected messages to be a list.")
+
         user_message = get_last_user_message(messages)
 
         if user_message and self.contains_nsfw_content(user_message["content"]):
