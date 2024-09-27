@@ -1,50 +1,44 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 from pydantic import BaseModel
 
 class Pipeline:
     class Valves(BaseModel):
-        pipelines: List[str] = ["*"]  # Apply filter to all pipelines
-        priority: int = 0  # Priority level of the filter
-        blocked_words: List[str] = ["explicit", "NSFW", "inappropriate", "porn"]  # Default NSFW keywords
-        block_message: str = "[Request blocked due to detected NSFW content]"  # Message to return when blocked
+        # List target pipeline ids (models) that this filter will be connected to.
+        pipelines: List[str] = []
+        priority: int = 0  # Higher priority for this filter to execute early
 
     def __init__(self):
         self.type = "filter"
-        self.name = "NSFW Blocker to Stop AI Processing"
-        self.valves = self.Valves()
+        self.name = "NSFW Filter"
+        self.valves = self.Valves(
+            pipelines=["*"],  # Connect to all pipelines
+            priority=1,
+        )
+        # Define a list of NSFW keywords
+        self.nsfw_keywords = ["keyword1", "keyword2", "explicit-term"]  # Add your NSFW keyword list here
 
-    def contains_nsfw_content(self, message: str) -> bool:
-        """Check if any of the blocked keywords are present in the message."""
-        return any(keyword.lower() in message.lower() for keyword in self.valves.blocked_words)
+    async def on_startup(self):
+        print(f"NSFW Filter Pipeline started.")
+        pass
+
+    async def on_shutdown(self):
+        print(f"NSFW Filter Pipeline stopped.")
+        pass
+
+    def contains_nsfw(self, user_message: str) -> bool:
+        # Check if any of the NSFW keywords exist in the user's message
+        return any(keyword.lower() in user_message.lower() for keyword in self.nsfw_keywords)
 
     async def inlet(self, body: dict, user: Optional[dict] = None) -> dict:
-        """Block the request before it is passed to the AI if NSFW content is detected."""
-        # Print the incoming body for debugging purposes
-        print(f"Incoming body: {body}")
+        print(f"NSFW Filter inlet activated.")
+        user_message = body["messages"][-1]["content"]
 
-        # Extract the user message from the body
-        messages = body.get("messages", [])
-        if not messages:
-            raise ValueError("No messages found in the body.")
+        # Block message if NSFW content is detected
+        if self.contains_nsfw(user_message):
+            return {
+                "blocked": True,
+                "response": "Your message was blocked due to inappropriate content. Please refrain from using explicit language.",
+            }
 
-        # Get the last user message
-        user_message = messages[-1]
-        if not isinstance(user_message, dict):
-            raise ValueError(f"Expected user_message to be a dictionary but got {type(user_message)}")
-
-        # Ensure the user message contains the 'content' key and it's a string
-        content = user_message.get("content", "")
-        if not isinstance(content, str):
-            raise ValueError("Expected 'content' to be a string.")
-
-        # Check for NSFW content
-        if self.contains_nsfw_content(content):
-            # Block the prompt and log the blocked message
-            print(f"Blocked message: {content} - Stopping AI processing.")
-            raise Exception(self.valves.block_message)
-
-        return body
-
-    async def outlet(self, body: dict, user: Optional[dict] = None) -> dict:
-        """No modification needed at the outlet as the message is blocked before reaching AI."""
+        # Otherwise, pass the message through unchanged
         return body
