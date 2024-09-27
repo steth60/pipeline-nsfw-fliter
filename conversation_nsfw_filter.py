@@ -21,12 +21,16 @@ class Pipeline:
     async def inlet(self, body: dict, user: Optional[dict] = None) -> dict:
         """Block the request if NSFW content is detected in the user's message."""
         messages = body.get("messages", [])
-        user_message = get_last_user_message(messages)
+        
+        # Ensure 'messages' is a list of dictionaries
+        if isinstance(messages, list) and all(isinstance(message, dict) for message in messages):
+            user_message = get_last_user_message(messages)
 
-        if user_message and self.contains_nsfw_content(user_message["content"]):
-            # Log and block the prompt to save GPU resources
-            print(f"Blocked message: {user_message['content']}")
-            raise Exception(self.valves.block_message)  # Raising exception to block the request completely
+            if user_message and isinstance(user_message.get("content"), str):
+                if self.contains_nsfw_content(user_message["content"]):
+                    # Log and block the prompt to save GPU resources
+                    print(f"Blocked message: {user_message['content']}")
+                    raise Exception(self.valves.block_message)
 
         return body  # If no NSFW content, proceed as usual
 
