@@ -7,7 +7,7 @@ class Pipeline:
         pipelines: List[str] = ["*"]  # Apply filter to all pipelines
         priority: int = 0  # Priority level of the filter
         blocked_words: List[str] = ["explicit", "NSFW", "inappropriate", "porn"]  # Default NSFW keywords
-        block_message: str = "[Request blocked due to detected NSFW content]"  # Block message
+        block_message: str = "[Request blocked due to detected NSFW content]"  # Block message to show to the user
 
     def __init__(self):
         self.type = "filter"
@@ -21,15 +21,19 @@ class Pipeline:
     async def inlet(self, body: dict, user: Optional[dict] = None) -> dict:
         """Block the request if NSFW content is detected in the user's message."""
         messages = body.get("messages", [])
-        user_message = get_last_user_message(messages)
+        
+        # Ensure 'messages' is a list of dictionaries
+        if isinstance(messages, list) and all(isinstance(message, dict) for message in messages):
+            user_message = get_last_user_message(messages)
 
-        if user_message and self.contains_nsfw_content(user_message["content"]):
-            # Log and block the prompt to save GPU resources
-            print(f"Blocked message: {user_message['content']}")
-            raise Exception(self.valves.block_message)
+            if user_message and isinstance(user_message.get("content"), str):
+                if self.contains_nsfw_content(user_message["content"]):
+                    # Log and block the prompt to save GPU resources
+                    print(f"Blocked message: {user_message['content']}")
+                    raise Exception(self.valves.block_message)
 
-        return body
+        return body  # If no NSFW content, proceed as usual
 
     async def outlet(self, body: dict, user: Optional[dict] = None) -> dict:
-        """No modification of the outlet as we block the request at the inlet stage."""
-        return body
+        """No need to modify the outlet if we are blocking NSFW requests at the inlet stage."""
+        return body  # Leave the outlet unchanged if the request was allowed through
