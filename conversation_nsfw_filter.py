@@ -2,7 +2,7 @@
 title: NSFW Content Filter Pipeline
 author: your-name
 date: 2023-10-10
-version: 1.3
+version: 1.4
 license: MIT
 description: A pipeline filter that detects NSFW content in user messages and blocks them.
 requirements: requests
@@ -48,10 +48,7 @@ class Pipeline:
             ),
         )
 
-        if not self.valves.OPENAI_API_KEY:
-            raise ValueError(
-                "OpenAI API key is not set. Please set the OPENAI_API_KEY in the valves configuration or as an environment variable."
-            )
+        # Removed the check for OPENAI_API_KEY in __init__ to allow module loading.
 
     async def on_startup(self):
         # This function is called when the server starts.
@@ -66,6 +63,20 @@ class Pipeline:
         # Check if the user's role is in target_user_roles.
         user_role = user.get("role", "user") if user else "user"
         if user_role in self.valves.target_user_roles:
+            # Check if OPENAI_API_KEY is set.
+            if not self.valves.OPENAI_API_KEY:
+                # Optionally, you can log a warning or return an error message.
+                print("OpenAI API key is not set. Blocking message.")
+                return {
+                    "messages": [
+                        {
+                            "role": "assistant",
+                            "content": self.valves.blocked_message
+                        }
+                    ],
+                    "stop": True  # Indicate that processing should stop here.
+                }
+
             # Analyze the last user message.
             user_message = body["messages"][-1]["content"]
             is_safe = self.check_message_safety(user_message)
@@ -82,7 +93,7 @@ class Pipeline:
                     "stop": True  # Indicate that processing should stop here.
                 }
 
-        # If the message is safe, allow it to proceed.
+        # If the message is safe or user's role is not in target_user_roles, allow it to proceed.
         return body
 
     def check_message_safety(self, message: str) -> bool:
