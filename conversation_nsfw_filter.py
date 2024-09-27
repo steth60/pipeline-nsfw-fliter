@@ -2,7 +2,7 @@
 title: NSFW Content Filter Pipeline
 author: your-name
 date: 2023-10-10
-version: 1.4
+version: 1.5
 license: MIT
 description: A pipeline filter that detects NSFW content in user messages and blocks them.
 requirements: requests
@@ -27,7 +27,7 @@ class Pipeline:
         target_user_roles: List[str] = ["user"]
 
         # Custom parameters for the NSFW filter.
-        OPENAI_API_KEY: str = "12345"
+        OPENAI_API_KEY: str = ""
         threshold: float = 0.5
         blocked_message: str = "Your message was blocked because it contains inappropriate content."
 
@@ -65,33 +65,15 @@ class Pipeline:
         if user_role in self.valves.target_user_roles:
             # Check if OPENAI_API_KEY is set.
             if not self.valves.OPENAI_API_KEY:
-                # Optionally, you can log a warning or return an error message.
                 print("OpenAI API key is not set. Blocking message.")
-                return {
-                    "messages": [
-                        {
-                            "role": "assistant",
-                            "content": self.valves.blocked_message
-                        }
-                    ],
-                    "stop": True  # Indicate that processing should stop here.
-                }
-
+                raise Exception(self.valves.blocked_message)
             # Analyze the last user message.
             user_message = body["messages"][-1]["content"]
             is_safe = self.check_message_safety(user_message)
 
             if not is_safe:
-                # Return the blocked message.
-                return {
-                    "messages": [
-                        {
-                            "role": "assistant",
-                            "content": self.valves.blocked_message
-                        }
-                    ],
-                    "stop": True  # Indicate that processing should stop here.
-                }
+                # Raise an exception with the blocked message.
+                raise Exception(self.valves.blocked_message)
 
         # If the message is safe or user's role is not in target_user_roles, allow it to proceed.
         return body
