@@ -1,6 +1,5 @@
 from typing import List, Optional, Union
 from pydantic import BaseModel
-from utils.pipelines.main import get_last_user_message
 
 class Pipeline:
     class Valves(BaseModel):
@@ -18,31 +17,33 @@ class Pipeline:
         """Check if any of the blocked keywords are present in the message."""
         return any(keyword.lower() in message.lower() for keyword in self.valves.blocked_words)
 
-    async def inlet(self, body: Union[dict, str], user: Optional[dict] = None) -> dict:
+    async def inlet(self, body: dict, user: Optional[dict] = None) -> dict:
         """Block the request before it is passed to the AI if NSFW content is detected."""
-        # Ensure body is a dictionary
-        if isinstance(body, str):
-            raise ValueError("Body is a string. Expected a dictionary with 'messages'.")
+        # Print the incoming body for debugging purposes
+        print(f"Incoming body: {body}")
 
-        if not isinstance(body, dict):
-            raise ValueError(f"Expected body to be a dictionary but got {type(body)}")
-
+        # Extract the user message from the body
         messages = body.get("messages", [])
-        if not isinstance(messages, list):
-            raise ValueError(f"Expected 'messages' to be a list but got {type(messages)}")
+        if not messages:
+            raise ValueError("No messages found in the body.")
 
-        # Get the last user message and check if it's valid
-        user_message = get_last_user_message(messages)
+        # Get the last user message
+        user_message = messages[-1]
         if not isinstance(user_message, dict):
             raise ValueError(f"Expected user_message to be a dictionary but got {type(user_message)}")
 
-        # Ensure the user message contains the 'content' key
-        if "content" in user_message and self.contains_nsfw_content(user_message["content"]):
+        # Ensure the user message contains the 'content' key and it's a string
+        content = user_message.get("content", "")
+        if not isinstance(content, str):
+            raise ValueError("Expected 'content' to be a string.")
+
+        # Check for NSFW content
+        if self.contains_nsfw_content(content):
             # Block the prompt and log the blocked message
-            print(f"Blocked message: {user_message['content']} - Stopping AI processing.")
+            print(f"Blocked message: {content} - Stopping AI processing.")
             raise Exception(self.valves.block_message)
 
-        return body  # Only return the body if no NSFW content is detected
+        return body
 
     async def outlet(self, body: dict, user: Optional[dict] = None) -> dict:
         """No modification needed at the outlet as the message is blocked before reaching AI."""
