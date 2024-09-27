@@ -7,11 +7,11 @@ class Pipeline:
         pipelines: List[str] = ["*"]  # Apply filter to all pipelines
         priority: int = 0  # Priority level of the filter
         blocked_words: List[str] = ["explicit", "NSFW", "inappropriate", "porn"]  # Default NSFW keywords
-        block_message: str = "[Request blocked due to detected NSFW content]"  # Block message to show to the user
+        block_message: str = "[Request blocked due to detected NSFW content]"  # Message to return when blocked
 
     def __init__(self):
         self.type = "filter"
-        self.name = "NSFW Blocker to Save GPU Resources"
+        self.name = "NSFW Blocker to Stop AI Processing"
         self.valves = self.Valves()
 
     def contains_nsfw_content(self, message: str) -> bool:
@@ -19,21 +19,17 @@ class Pipeline:
         return any(keyword.lower() in message.lower() for keyword in self.valves.blocked_words)
 
     async def inlet(self, body: dict, user: Optional[dict] = None) -> dict:
-        """Block the request if NSFW content is detected in the user's message."""
+        """Block the request before it is passed to the AI if NSFW content is detected."""
         messages = body.get("messages", [])
-        
-        # Ensure 'messages' is a list of dictionaries
-        if isinstance(messages, list) and all(isinstance(message, dict) for message in messages):
-            user_message = get_last_user_message(messages)
+        user_message = get_last_user_message(messages)
 
-            if user_message and isinstance(user_message.get("content"), str):
-                if self.contains_nsfw_content(user_message["content"]):
-                    # Log and block the prompt to save GPU resources
-                    print(f"Blocked message: {user_message['content']}")
-                    raise Exception(self.valves.block_message)
+        if user_message and self.contains_nsfw_content(user_message["content"]):
+            # Block the prompt and stop it from reaching the AI
+            print(f"Blocked message: {user_message['content']} - Stopping AI processing.")
+            raise Exception(self.valves.block_message)
 
-        return body  # If no NSFW content, proceed as usual
+        return body  # Only return the body if no NSFW content is detected
 
     async def outlet(self, body: dict, user: Optional[dict] = None) -> dict:
-        """No need to modify the outlet if we are blocking NSFW requests at the inlet stage."""
-        return body  # Leave the outlet unchanged if the request was allowed through
+        """No modification needed at the outlet as the message is blocked before reaching AI."""
+        return body
