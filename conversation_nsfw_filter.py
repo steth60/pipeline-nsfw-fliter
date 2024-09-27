@@ -27,7 +27,7 @@ class Pipeline:
         target_user_roles: List[str] = ["user"]
 
         # Custom parameters for the NSFW filter.
-        OPENAI_API_KEY: str = ""
+        OPENAI_API_KEY: str = "12345"
         threshold: float = 0.5
         blocked_message: str = "Your message was blocked because it contains inappropriate content."
 
