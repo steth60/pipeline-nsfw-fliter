@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 class Pipeline:
     class Valves(BaseModel):
-        # List target pipeline ids (models) that this filter will be connected to.
         pipelines: List[str] = []
         priority: int = 0  # Higher priority for this filter to execute early
 
@@ -33,12 +32,20 @@ class Pipeline:
         print(f"NSFW Filter inlet activated.")
         user_message = body["messages"][-1]["content"]
 
-        # Block message if NSFW content is detected
+        # If NSFW content is detected, modify the message response and retain the original structure
         if self.contains_nsfw(user_message):
-            return {
-                "blocked": True,
-                "response": "Your message was blocked due to inappropriate content. Please refrain from using explicit language.",
+            # Block the message and send a response back to the user
+            blocked_response = {
+                'model': body.get('model'),
+                'messages': [
+                    {'role': 'assistant', 'content': 'Your message was blocked due to inappropriate content. Please refrain from using explicit language.'}
+                ],
+                'stream': False,
+                'max_tokens': body.get('max_tokens', 50),
+                'chat_id': body.get('chat_id'),
+                'metadata': body.get('metadata', {}),
             }
+            return blocked_response
 
         # Otherwise, pass the message through unchanged
         return body
