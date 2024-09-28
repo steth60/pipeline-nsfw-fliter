@@ -1,10 +1,10 @@
 """
-title: NSFW Content Filter Pipeline with Ollama Response Spoofing
+title: NSFW Content Filter Pipeline with Exact Ollama Response
 author: your-name
 date: 2023-10-10
-version: 1.6
+version: 1.8
 license: MIT
-description: A pipeline filter that detects NSFW content in user messages and blocks them by spoofing an Ollama-like response.
+description: A pipeline filter that detects NSFW content in user messages and blocks them by returning an exact Ollama-like response.
 requirements: requests
 """
 
@@ -13,7 +13,7 @@ from pydantic import BaseModel
 import os
 import requests
 import json
-import datetime
+from datetime import datetime, timezone
 
 class Pipeline:
     class Valves(BaseModel):
@@ -33,12 +33,12 @@ class Pipeline:
         threshold: float = 0.5
         blocked_message: str = "Your message was blocked because it contains inappropriate content."
 
-        # Model information for spoofing the response.
+        # Model information for the response.
         model_name: str = "llama3.1"
 
     def __init__(self):
         self.type = "filter"
-        self.name = "NSFW Content Filter with Ollama Response Spoofing"
+        self.name = "NSFW Content Filter with Exact Ollama Response"
 
         # Initialize valves with default values or environment variables.
         self.valves = self.Valves(
@@ -53,8 +53,6 @@ class Pipeline:
             ),
             model_name=os.getenv("NSFW_MODEL_NAME", "llama3.1"),
         )
-
-        # Removed the check for OPENAI_API_KEY in __init__ to allow module loading.
 
     async def on_startup(self):
         # This function is called when the server starts.
@@ -78,7 +76,7 @@ class Pipeline:
             is_safe = self.check_message_safety(user_message)
 
             if not is_safe:
-                # Return the spoofed Ollama response.
+                # Return the exact Ollama response.
                 return self.generate_ollama_response(blocked=True)
 
         # If the message is safe or user's role is not in target_user_roles, allow it to proceed.
@@ -118,24 +116,37 @@ class Pipeline:
         return True  # Message is safe.
 
     def generate_ollama_response(self, blocked: bool = False) -> dict:
-        # Generate a response that mimics Ollama's format.
+        # Generate a response that matches the exact Ollama format.
         # If blocked is True, we return a response indicating that the message was blocked.
-        from datetime import datetime, timezone
 
-        # Generate a timestamp in ISO 8601 format with Z suffix.
-        created_at = datetime.now(timezone.utc).isoformat()
-
-        # Prepare the response data.
-        response_data = []
+        # Prepare the list to hold the response lines.
+        response_lines = []
 
         if blocked:
-            # If the message is blocked, create a response that indicates processing but ends without content.
-            # You can customize this as needed.
-            # Example: Return the blocked_message as the final response.
-            blocked_response = {
+            # Use the blocked_message to create the response tokens.
+            response_text = self.valves.blocked_message
+            tokens = response_text.split()
+
+            # Generate a timestamp for each token.
+            base_time = datetime.now(timezone.utc)
+            time_increment = 0.04  # 40 milliseconds between tokens.
+
+            for index, token in enumerate(tokens):
+                created_at = (base_time + index * datetime.timedelta(seconds=time_increment)).isoformat()
+                response_line = {
+                    "model": self.valves.model_name,
+                    "created_at": created_at,
+                    "response": token,
+                    "done": False
+                }
+                response_lines.append(json.dumps(response_line))
+
+            # Add the final line indicating completion.
+            final_created_at = (base_time + len(tokens) * datetime.timedelta(seconds=time_increment)).isoformat()
+            final_line = {
                 "model": self.valves.model_name,
-                "created_at": created_at,
-                "response": self.valves.blocked_message,
+                "created_at": final_created_at,
+                "response": "",
                 "done": True,
                 "done_reason": "stop",
                 "context": [],
@@ -146,18 +157,20 @@ class Pipeline:
                 "eval_count": 0,
                 "eval_duration": 0
             }
-            response_data.append(blocked_response)
+            response_lines.append(json.dumps(final_line))
+
+            # Print the spoofed response in the console.
+            print("Spoofed Ollama Response:")
+            for line in response_lines:
+                print(line)
         else:
             # If not blocked, this function should not be called with blocked=False.
             pass
 
-        # Return the response as a list of JSON lines.
-        response_lines = [json.dumps(item) for item in response_data]
-
         # Join the lines to form the final response.
         final_response = "\n".join(response_lines)
 
-        # Return the final response in the expected format.
+        # Return the final response as if it came from Ollama.
         return {
             "ollama_response": final_response,
             "stop": True  # Indicate that processing should stop here.
