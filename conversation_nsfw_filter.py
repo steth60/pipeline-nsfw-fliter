@@ -7,13 +7,12 @@ license: MIT
 description: A pipeline filter that detects NSFW content in user messages and blocks them by returning an exact Ollama-like response.
 requirements: requests
 """
-
 from typing import List, Optional
 from pydantic import BaseModel
 import os
 import requests
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 class Pipeline:
     class Valves(BaseModel):
@@ -129,10 +128,10 @@ class Pipeline:
 
             # Generate a timestamp for each token.
             base_time = datetime.now(timezone.utc)
-            time_increment = 0.04  # 40 milliseconds between tokens.
+            time_increment = timedelta(milliseconds=40)  # 40 milliseconds between tokens.
 
             for index, token in enumerate(tokens):
-                created_at = (base_time + index * datetime.timedelta(seconds=time_increment)).isoformat()
+                created_at = (base_time + index * time_increment).isoformat()
                 response_line = {
                     "model": self.valves.model_name,
                     "created_at": created_at,
@@ -142,7 +141,7 @@ class Pipeline:
                 response_lines.append(json.dumps(response_line))
 
             # Add the final line indicating completion.
-            final_created_at = (base_time + len(tokens) * datetime.timedelta(seconds=time_increment)).isoformat()
+            final_created_at = (base_time + len(tokens) * time_increment).isoformat()
             final_line = {
                 "model": self.valves.model_name,
                 "created_at": final_created_at,
